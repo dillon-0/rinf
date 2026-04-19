@@ -14,14 +14,14 @@ class OhosEnvironment {
   final String ohosSDKHome;
   final Target target;
 
-  _save(String fileName, String content) {
+  String _save(String fileName, String content) {
     final file = File(join(targetTempDir, fileName));
     file.createSync(recursive: true);
     file.writeAsStringSync(content);
     return file.path;
   }
 
-  _addExecutablePermission(String path) {
+  void _addExecutablePermission(String path) {
     final result = Process.runSync('chmod', ['+x', path]);
     if (result.exitCode != 0) {
       throw Exception('chmod failed: ${result.stderr}');
