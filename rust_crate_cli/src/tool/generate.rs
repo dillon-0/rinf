@@ -34,21 +34,77 @@ fn extract_signal_attributes(
 ) -> Option<BTreeSet<SignalAttribute>> {
   let mut extracted_attrs = BTreeSet::new();
   for attr in attrs.iter() {
-    if !attr.path().is_ident("derive") {
-      continue;
+    if attr.path().is_ident("derive") {
+      extract_derives_from_attr(attr, &mut extracted_attrs)?;
+    } else if attr.path().is_ident("cfg_attr") {
+      // Handle #[cfg_attr(feature = "...", derive(SignalPiece))]
+      extract_derives_from_cfg_attr(attr, &mut extracted_attrs);
     }
-    attr
-      .parse_nested_meta(|meta| {
-        let last_segment = match meta.path.segments.last() {
-          Some(inner) => inner,
-          None => {
-            return Err(syn::Error::new(
-              meta.path.span(),
-              "Missing derive item name",
-            ));
-          }
-        };
-        let ident: &str = &last_segment.ident.to_string();
+  }
+  Some(extracted_attrs)
+}
+
+fn extract_derives_from_attr(
+  attr: &Attribute,
+  extracted_attrs: &mut BTreeSet<SignalAttribute>,
+) -> Option<()> {
+  attr
+    .parse_nested_meta(|meta| {
+      let last_segment = match meta.path.segments.last() {
+        Some(inner) => inner,
+        None => {
+          return Err(syn::Error::new(
+            meta.path.span(),
+            "Missing derive item name",
+          ));
+        }
+      };
+      let ident: &str = &last_segment.ident.to_string();
+      let signal_attr_op = match ident {
+        "SignalPiece" => Some(SignalAttribute::SignalPiece),
+        "DartSignal" => Some(SignalAttribute::DartSignal),
+        "DartSignalBinary" => Some(SignalAttribute::DartSignalBinary),
+        "RustSignal" => Some(SignalAttribute::RustSignalBinary),
+        "RustSignalBinary" => Some(SignalAttribute::RustSignalBinary),
+        _ => None,
+      };
+      if let Some(signal_attr) = signal_attr_op {
+        extracted_attrs.insert(signal_attr);
+      }
+      Ok(())
+    })
+    .ok()?;
+  Some(())
+}
+
+fn extract_derives_from_cfg_attr(
+  attr: &Attribute,
+  extracted_attrs: &mut BTreeSet<SignalAttribute>,
+) {
+  // Parse the raw token stream to find derive(...) inside cfg_attr.
+  // Token stream may have spaces, e.g. "derive (rinf :: SignalPiece)".
+  let tokens = match &attr.meta {
+    syn::Meta::List(list) => list.tokens.to_string(),
+    _ => return,
+  };
+  // Collapse whitespace to normalize token spacing
+  let normalized: String = tokens.split_whitespace().collect::<Vec<_>>().join(" ");
+  // Match "derive(" or "derive ("
+  let derive_prefix = if let Some(pos) = normalized.find("derive(") {
+    Some(pos + 7)
+  } else if let Some(pos) = normalized.find("derive (") {
+    Some(pos + 8)
+  } else {
+    None
+  };
+  if let Some(start) = derive_prefix {
+    let after_derive = &normalized[start..];
+    if let Some(close) = after_derive.find(')') {
+      let derive_args = &after_derive[..close];
+      for item in derive_args.split(',') {
+        let item = item.trim();
+        // Handle both "SignalPiece" and "rinf :: SignalPiece"
+        let ident = item.rsplit("::").next().unwrap_or(item).trim();
         let signal_attr_op = match ident {
           "SignalPiece" => Some(SignalAttribute::SignalPiece),
           "DartSignal" => Some(SignalAttribute::DartSignal),
@@ -60,11 +116,9 @@ fn extract_signal_attributes(
         if let Some(signal_attr) = signal_attr_op {
           extracted_attrs.insert(signal_attr);
         }
-        Ok(())
-      })
-      .ok()?;
+      }
+    }
   }
-  Some(extracted_attrs)
 }
 
 fn extract_doc_comment(attrs: &[Attribute]) -> String {
