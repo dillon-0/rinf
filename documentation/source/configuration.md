@@ -12,7 +12,7 @@ rinf:
   gen_output_dir: lib/src/bindings
 ```
 
-- `gen_input_crates`: A list of crate names under the `native` folder. The `rinf gen` command will search for signal structs in these crates. Each crate should be located directly under the `native` folder.
+- `gen_input_crates`: A list of crate paths whose `src/` directories will be scanned for signal structs by `rinf gen`. Plain names (e.g. `hub`) are resolved under the `native` folder. Entries containing `/` (e.g. `../my_crate`) are resolved relative to the project root, which is useful for crates that live outside `native/`.
 - `gen_output_dir`: The directory where the generated Dart code will be placed by the `rinf gen` command.
 
 You can check the current configuration status by running the command below in the CLI.

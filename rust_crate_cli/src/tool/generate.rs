@@ -662,7 +662,11 @@ pub fn generate_dart_code(
     doc_comments: BTreeMap::new(),
   };
   for crate_name in &rinf_config.gen_input_crates {
-    let source_dir = root_dir.join("native").join(crate_name).join("src");
+    let source_dir = if crate_name.contains('/') {
+      root_dir.join(crate_name).join("src")
+    } else {
+      root_dir.join("native").join(crate_name).join("src")
+    };
     visit_rust_files(&source_dir, &mut traced)?;
   }
 
@@ -739,7 +743,11 @@ pub fn watch_and_generate_dart_code(
     Config::default(),
   )?;
   for crate_name in &rinf_config.gen_input_crates {
-    let source_dir = root_dir.join("native").join(crate_name);
+    let source_dir = if crate_name.contains('/') {
+      root_dir.join(crate_name)
+    } else {
+      root_dir.join("native").join(crate_name)
+    };
     watcher.watch(&source_dir, RecursiveMode::Recursive)?;
   }
 
