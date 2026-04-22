@@ -170,6 +170,11 @@ class RustBuilder {
   }
 
   Future<Map<String, String>> _buildEnvironment() async {
+    // cmake 4.x removed compat with policies < 3.5; audiopus_sys needs this.
+    final common = <String, String>{
+      'CMAKE_POLICY_VERSION_MINIMUM': '3.5',
+    };
+
     if (target.android != null) {
       final sdkPath = environment.androidSdkPath;
       final ndkVersion = environment.androidNdkVersion;
@@ -193,15 +198,15 @@ class RustBuilder {
       if (!env.ndkIsInstalled() && environment.javaHome != null) {
         env.installNdk(javaHome: environment.javaHome!);
       }
-      return env.buildEnvironment();
+      return {...common, ...await env.buildEnvironment()};
     } else if (target.ohos != null) {
       final env = OhosEnvironment(
           targetTempDir: environment.targetTempDir,
           ohosSDKHome: environment.ohosSDKHome ?? "",
           target: target);
-      return env.buildEnvironment();
+      return {...common, ...await env.buildEnvironment()};
     } else {
-      return {};
+      return common;
     }
   }
 }

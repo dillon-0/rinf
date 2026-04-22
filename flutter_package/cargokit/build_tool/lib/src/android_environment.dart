@@ -155,6 +155,9 @@ class AndroidEnvironment {
       '_CARGOKIT_NDK_LINK_TARGET': targetArg,
       '_CARGOKIT_NDK_LINK_CLANG': ccValue,
       'CARGOKIT_TOOL_TEMP_DIR': toolTempDir,
+      // cmake's Android platform module needs the NDK root to find the
+      // toolchain file. Without this, -DCMAKE_SYSTEM_NAME=Android fails.
+      'ANDROID_NDK': ndkPath,
     };
   }
 

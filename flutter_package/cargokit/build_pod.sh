@@ -11,6 +11,14 @@ NEW_PATH=`echo $PATH | tr ":" "\n" | grep -v "Contents/Developer/" | tr "\n" ":"
 
 export PATH=${NEW_PATH%?} # remove trailing :
 
+# Homebrew (cmake, etc.) isn't in Xcode's default PATH.
+if [ -d "/opt/homebrew/bin" ]; then
+  export PATH="/opt/homebrew/bin:$PATH"
+fi
+
+# cmake 4.x removed compat with policies < 3.5; audiopus_sys needs this.
+export CMAKE_POLICY_VERSION_MINIMUM="3.5"
+
 env
 
 # Platform name (macosx, iphoneos, iphonesimulator)
