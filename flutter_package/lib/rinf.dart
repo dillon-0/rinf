@@ -25,6 +25,18 @@ Future<void> initializeRust(
     debugPrint(rustReport, wrapWidth: 1024);
   };
 
+  // Log Rust→Dart signal delivery (for debugging cold-launch issues).
+  final originalAssign = Map<String, void Function(Uint8List, Uint8List)>.from(assignRustSignal);
+  for (final entry in originalAssign.entries) {
+    if (entry.key == 'RinfOut') continue;
+    final originalHandler = entry.value;
+    assignRustSignal[entry.key] = (messageBytes, binary) {
+      // ignore: avoid_print
+      print('[rinf] received from Rust: ${entry.key}');
+      originalHandler(messageBytes, binary);
+    };
+  }
+
   // Prepare the interface with Rust.
   await prepareInterfaceReal(assignRustSignal);
   startRustLogicReal();

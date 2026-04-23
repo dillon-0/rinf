@@ -36,10 +36,7 @@ impl<T> SignalSender<T> {
   /// is poisoned but simply ignores the failure.
   pub fn send(&self, msg: T) {
     let mut guard = self.inner.lock().recover();
-
-    // Enqueue the message.
     guard.queue.push_back(msg);
-    // Wake up the previous receiver making it receive `None`, if any.
     if let Some(waker) = guard.waker.take() {
       waker.wake();
     }
