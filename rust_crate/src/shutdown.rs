@@ -134,18 +134,6 @@ impl Future for EventFuture {
     // If the flag is true or the session count is different
     // because a new event session has started, stop polling.
     if guard.flag || guard.session != self.started_session {
-      // DIAGNOSTIC: write to a file to prove this fires
-      #[cfg(debug_assertions)]
-      {
-        use std::io::Write;
-        if let Ok(mut f) = std::fs::OpenOptions::new()
-          .create(true).append(true)
-          .open("/tmp/rinf_dart_shutdown.log")
-        {
-          let _ = writeln!(f, "dart_shutdown READY: flag={} session={} started={}",
-            guard.flag, guard.session, self.started_session);
-        }
-      }
       Poll::Ready(())
     } else {
       // Check if the current waker is already in the list of wakers.

@@ -13,7 +13,7 @@ mod interface_web;
 
 pub use channel::{SignalReceiver, SignalSender, signal_channel};
 pub use error::AppError;
-pub use interface::{DartSignalPack, send_rust_signal, signal_runtime_ready, start_rust_logic};
+pub use interface::{DartSignalPack, send_rust_signal, start_rust_logic};
 pub use shutdown::dart_shutdown;
 pub use signal_trait::{
   DartSignal, DartSignalBinary, RustSignal, RustSignalBinary, SignalPiece,

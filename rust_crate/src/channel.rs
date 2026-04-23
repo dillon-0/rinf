@@ -31,36 +31,18 @@ struct SignalChannel<T> {
 }
 
 impl<T> SignalSender<T> {
-  /// Returns the raw pointer of the inner Arc for diagnostic purposes.
-  /// Two senders/receivers sharing the same channel will have the same address.
-  #[cfg(debug_assertions)]
-  pub fn arc_addr(&self) -> usize {
-    Arc::as_ptr(&self.inner) as usize
-  }
-
   /// Sends a message to the shared queue. If a receiver is waiting for a
   /// message, it will be woken up. This method does not fail if the mutex
   /// is poisoned but simply ignores the failure.
   pub fn send(&self, msg: T) {
-    let ptr = Arc::as_ptr(&self.inner) as usize;
     let mut guard = self.inner.lock().recover();
-    let queue_len = guard.queue.len();
     guard.queue.push_back(msg);
-    let had_waker = guard.waker.is_some();
-    let active_id = guard.active_receiver_id;
     if let Some(waker) = guard.waker.take() {
-      waker.wake();
-    }
-    #[cfg(debug_assertions)]
-    {
-      use std::io::Write;
-      if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true).append(true)
-        .open("/tmp/rinf_channel_send.log")
-      {
-        let _ = writeln!(f, "send: ch={:#x} queue {}→{}, active_id={}, had_waker={}",
-          ptr, queue_len, queue_len + 1, active_id, had_waker);
-      }
+      // Wake from a dedicated thread rather than the calling thread.
+      // On iOS, calling waker.wake() from the Dart FFI thread doesn't
+      // reliably unpark the tokio current_thread runtime on cold launch.
+      // A fresh OS thread's wake() consistently reaches the runtime.
+      std::thread::spawn(move || waker.wake());
     }
   }
 }
@@ -119,17 +101,6 @@ impl<T> Future for RecvFuture<T> {
     if guard.active_receiver_id == self.receiver_id {
       match guard.queue.pop_front() {
         Some(msg) => {
-          #[cfg(debug_assertions)]
-          {
-            use std::io::Write;
-            let ptr = Arc::as_ptr(&self.inner) as usize;
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-              .create(true).append(true)
-              .open("/tmp/rinf_channel_send.log")
-            {
-              let _ = writeln!(f, "poll: ch={:#x} GOT message, queue_remaining={}", ptr, guard.queue.len());
-            }
-          }
           // Check if more messages are in the queue.
           if !guard.queue.is_empty() {
             // If so, wake the current task immediately.

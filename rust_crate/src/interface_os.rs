@@ -12,14 +12,6 @@ use std::thread::spawn;
 
 static DART_ISOLATE: Mutex<Option<Isolate>> = Mutex::new(None);
 
-/// Signalled by the Rust runtime after all handlers are spawned and
-/// the tokio event loop is about to start polling. `start_rust_logic_real`
-/// blocks on this so that `initializeRust` doesn't return until the
-/// runtime is ready to receive signals.
-static RUNTIME_READY: std::sync::LazyLock<crate::shutdown::Event> =
-  std::sync::LazyLock::new(crate::shutdown::Event::new);
-
-
 #[unsafe(no_mangle)]
 extern "C" fn rinf_prepare_isolate_extern(
   store_post_object: DartPostCObjectFnType,
@@ -87,10 +79,24 @@ where
 
   // Spawn a new thread to run the async runtime.
   spawn(move || {
+    // Notify that Dart has stopped
+    // to terminate the previous Rust async runtime threads.
+    // After Dart's hot restart or reopening the app,
+    // Previous Rust async runtime can be still running.
     SHUTDOWN_EVENTS.dart_stopped.set();
+
+    // Clear shutdown events to prepare for a fresh start.
     SHUTDOWN_EVENTS.dart_stopped.clear();
     SHUTDOWN_EVENTS.rust_stopped.clear();
+
+    // Execute the long-running function that will block the thread
+    // for the entire lifecycle of the app.
+    // This function runs the async Rust runtime.
     main_fn();
+
+    // After the Rust async runtime is closed,
+    // notify the main Dart thread to stop blocking
+    // and allow the application to exit.
     SHUTDOWN_EVENTS.rust_stopped.set();
   });
 
@@ -101,13 +107,6 @@ where
 extern "C" fn rinf_stop_rust_logic_extern() {
   SHUTDOWN_EVENTS.dart_stopped.set();
   SHUTDOWN_EVENTS.rust_stopped.wait();
-}
-
-/// Called by the hub's `main()` after spawning all handlers and before
-/// `dart_shutdown().await`. Unblocks `start_rust_logic_real` so
-/// `initializeRust` returns only when the tokio event loop is polling.
-pub fn signal_runtime_ready() {
-  RUNTIME_READY.set();
 }
 
 pub fn send_rust_signal_real(

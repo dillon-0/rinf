@@ -2,12 +2,6 @@ use crate::AppError;
 
 #[cfg(not(target_family = "wasm"))]
 use crate::interface_os::{send_rust_signal_real, start_rust_logic_real};
-#[cfg(not(target_family = "wasm"))]
-pub use crate::interface_os::signal_runtime_ready;
-
-/// No-op on WASM — the runtime is single-threaded and always ready.
-#[cfg(target_family = "wasm")]
-pub fn signal_runtime_ready() {}
 #[cfg(target_family = "wasm")]
 use crate::interface_web::{send_rust_signal_real, start_rust_logic_real};
 

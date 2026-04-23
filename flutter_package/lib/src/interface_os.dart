@@ -28,8 +28,6 @@ Future<void> prepareInterfaceReal(AssignRustSignal assignRustSignal) async {
     // Converting is needed on the Dart side.
     messageBytes ??= Uint8List(0);
 
-    // ignore: avoid_print
-    print('[rinf-port] received: $endpoint');
     assignRustSignal[endpoint]!(messageBytes, binary);
   });
 
@@ -42,11 +40,7 @@ Future<void> prepareInterfaceReal(AssignRustSignal assignRustSignal) async {
 }
 
 void startRustLogicReal() {
-  // ignore: avoid_print
-  print('[rinf] startRustLogic: calling native...');
   rustLibrary.startRustLogic();
-  // ignore: avoid_print
-  print('[rinf] startRustLogic: returned (runtime ready)');
 }
 
 void stopRustLogicReal() {
@@ -58,7 +52,5 @@ void sendDartSignalReal(
   Uint8List messageBytes,
   Uint8List binary,
 ) {
-  // ignore: avoid_print
-  print('[rinf] sendDartSignal: $endpointSymbol (${messageBytes.length}B)');
   rustLibrary.sendDartSignal(endpointSymbol, messageBytes, binary);
 }
