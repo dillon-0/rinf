@@ -38,11 +38,7 @@ impl<T> SignalSender<T> {
     let mut guard = self.inner.lock().recover();
     guard.queue.push_back(msg);
     if let Some(waker) = guard.waker.take() {
-      // Wake from a dedicated thread rather than the calling thread.
-      // On iOS, calling waker.wake() from the Dart FFI thread doesn't
-      // reliably unpark the tokio current_thread runtime on cold launch.
-      // A fresh OS thread's wake() consistently reaches the runtime.
-      std::thread::spawn(move || waker.wake());
+      waker.wake();
     }
   }
 }
