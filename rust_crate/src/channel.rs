@@ -121,23 +121,6 @@ impl<T> Future for RecvFuture<T> {
   /// a message is sent. If this receiver is not the active receiver, it will
   /// return `None`.
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    // Detect busy-loop: if we poll the same empty channel >20 times, log it.
-    {
-      use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-      static LAST_CH: AtomicUsize = AtomicUsize::new(0);
-      static REPEAT: AtomicU64 = AtomicU64::new(0);
-      let ch = Arc::as_ptr(&self.inner) as usize;
-      if LAST_CH.load(Ordering::Relaxed) == ch {
-        let n = REPEAT.fetch_add(1, Ordering::Relaxed);
-        if n == 20 {
-          diag_log(&format!("BUSY-LOOP detected: ch={ch:#x} polled >20 times consecutively"));
-        }
-      } else {
-        LAST_CH.store(ch, Ordering::Relaxed);
-        REPEAT.store(0, Ordering::Relaxed);
-      }
-    }
-
     let mut guard = self.inner.lock().recover();
 
     // Only allow the current active receiver to receive messages.
