@@ -11,7 +11,7 @@ mod interface_os;
 #[cfg(target_family = "wasm")]
 mod interface_web;
 
-pub use channel::{SignalReceiver, SignalSender, signal_channel};
+pub use channel::{SignalReceiver, SignalSender, set_diag_log_path, signal_channel};
 pub use error::AppError;
 pub use interface::{DartSignalPack, send_rust_signal, start_rust_logic};
 pub use shutdown::dart_shutdown;
