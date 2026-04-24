@@ -114,10 +114,20 @@ pub fn send_rust_signal_real(
   message_bytes: Vec<u8>,
   binary: Vec<u8>,
 ) -> Result<(), AppError> {
+  crate::channel::diag_log(&format!(
+    "send_rust_signal: endpoint={endpoint} msg_len={} bin_len={}",
+    message_bytes.len(), binary.len()
+  ));
   // When `DART_ISOLATE` is not initialized, just return the error.
   // This can happen when running test code in Rust.
   let guard = DART_ISOLATE.lock().recover();
-  let dart_isolate = guard.as_ref().ok_or(AppError::NoDartIsolate)?;
+  let dart_isolate = match guard.as_ref() {
+    Some(isolate) => isolate,
+    None => {
+      crate::channel::diag_log("send_rust_signal: DART_ISOLATE not initialized!");
+      return Err(AppError::NoDartIsolate);
+    }
+  };
 
   // If a `Vec<u8>` is empty, we can't just simply send it to Dart
   // because panic can occur from null pointers.
@@ -142,5 +152,6 @@ pub fn send_rust_signal_real(
     .into_dart(),
   );
 
+  crate::channel::diag_log(&format!("send_rust_signal: posted {endpoint} to Dart isolate"));
   Ok(())
 }

@@ -13,7 +13,7 @@ pub fn set_diag_log_path(path: String) {
   let _ = DIAG_LOG_PATH.set(path);
 }
 
-fn diag_log(msg: &str) {
+pub fn diag_log(msg: &str) {
   if let Some(path) = DIAG_LOG_PATH.get() {
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
