@@ -55,19 +55,15 @@ impl<T> SignalSender<T> {
   /// message, it will be woken up. This method does not fail if the mutex
   /// is poisoned but simply ignores the failure.
   pub fn send(&self, msg: T) {
-    let ch = Arc::as_ptr(&self.inner) as usize;
-    let mut guard = self.inner.lock().recover();
-    let queue_before = guard.queue.len();
-    guard.queue.push_back(msg);
-    let had_waker = guard.waker.is_some();
-    diag_log(&format!(
-      "send: ch={ch:#x} queue={queue_before}→{} had_waker={had_waker}",
-      queue_before + 1
-    ));
-    if let Some(waker) = guard.waker.take() {
-      diag_log(&format!("send: ch={ch:#x} before_wake"));
+    let waker = {
+      let mut guard = self.inner.lock().recover();
+      guard.queue.push_back(msg);
+      guard.waker.take()
+    };
+    // Wake AFTER releasing the mutex so the runtime thread can
+    // immediately acquire the lock when it re-polls RecvFuture.
+    if let Some(waker) = waker {
       waker.wake();
-      diag_log(&format!("send: ch={ch:#x} after_wake"));
     }
   }
 }
@@ -120,24 +116,12 @@ impl<T> Future for RecvFuture<T> {
   /// a message is sent. If this receiver is not the active receiver, it will
   /// return `None`.
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    let ch = Arc::as_ptr(&self.inner) as usize;
     let mut guard = self.inner.lock().recover();
-    let queue_len = guard.queue.len();
-
-    // Only log when there's something interesting (message found, or
-    // first time storing waker for this channel). Avoids flooding.
-    if queue_len > 0 {
-      diag_log(&format!(
-        "poll: ch={ch:#x} queue_len={queue_len} active={} self={}",
-        guard.active_receiver_id, self.receiver_id
-      ));
-    }
 
     // Only allow the current active receiver to receive messages.
     if guard.active_receiver_id == self.receiver_id {
       match guard.queue.pop_front() {
         Some(msg) => {
-          diag_log(&format!("poll: ch={ch:#x} GOT_MESSAGE remaining={}", guard.queue.len()));
           // Check if more messages are in the queue.
           if !guard.queue.is_empty() {
             // If so, wake the current task immediately.
