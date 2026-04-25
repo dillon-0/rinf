@@ -1,28 +1,8 @@
 use crate::traits::GuardRecovery;
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
-
-// Diagnostic log path — set by the host app (hub) so channel.rs can write
-// to a location the iOS sandbox allows. Not set = no logging.
-static DIAG_LOG_PATH: OnceLock<String> = OnceLock::new();
-
-/// Set the diagnostic log file path. Call once from the hub during init.
-pub fn set_diag_log_path(path: String) {
-  let _ = DIAG_LOG_PATH.set(path);
-}
-
-pub fn diag_log(msg: &str) {
-  if let Some(path) = DIAG_LOG_PATH.get() {
-    use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-      .create(true).append(true).open(path)
-    {
-      let _ = writeln!(f, "{msg}");
-    }
-  }
-}
 
 /// The `SignalSender` is used to send messages into a shared message queue.
 /// It is clonable, and multiple senders can be created to send messages into
@@ -69,11 +49,6 @@ impl<T> SignalSender<T> {
 }
 
 impl<T> SignalReceiver<T> {
-  /// Returns the Arc pointer address for diagnostic channel identification.
-  pub fn chan_addr(&self) -> usize {
-    Arc::as_ptr(&self.inner) as usize
-  }
-
   /// Asynchronously receives the next message from the queue. Only the active
   /// receiver is allowed to receive messages. If there are no messages in the
   /// queue, the receiver will wait until a new message is sent.
